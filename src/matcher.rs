@@ -3,6 +3,8 @@ pub enum RegexPattern {
     Char(char),
     Digit, // \d
     Word,  // \w
+    PositiveCharSet(Vec<char>),
+    NegativeCharSet(Vec<char>),
 }
 
 pub mod matcher {
@@ -35,6 +37,40 @@ pub mod matcher {
                 }
                 _ => panic!("Unhandled escape sequence: \\{:?}", pattern),
             },
+            Some('[') => {
+                let mut char_set = Vec::new();
+                let mut is_negative = false;
+
+                match pattern.next() {
+                    Some('^') => {
+                        is_negative = true;
+                        match pattern.next() {
+                            Some(']') => {}
+                            Some(c) => char_set.push(c),
+                            None => panic!("Unterminated character set: {:?}", pattern),
+                        }
+                    }
+                    Some(']') => {}
+                    Some(c) => char_set.push(c),
+                    None => panic!("Unterminated character set: {:?}", pattern),
+                }
+
+                loop {
+                    match pattern.next() {
+                        Some(']') => break,
+                        Some(c) => char_set.push(c),
+                        None => panic!("Unterminated character set: {:?}", pattern),
+                    }
+                }
+
+                if is_negative {
+                    tokens.push(RegexPattern::NegativeCharSet(char_set));
+                } else {
+                    tokens.push(RegexPattern::PositiveCharSet(char_set));
+                }
+
+                parse_pattern(pattern, tokens)
+            }
             Some(c) => {
                 tokens.push(RegexPattern::Char(c));
                 parse_pattern(pattern, tokens)
@@ -77,6 +113,42 @@ pub mod matcher {
                     } else {
                         return false;
                     }
+                }
+                RegexPattern::PositiveCharSet(char_set) => {
+                    // Positive character groups match any character that is present within a pair of square brackets
+                    // Example: [abc] matches any character that is either a, b, or c
+
+                    let mut matched = false;
+                    for c in char_set {
+                        if input_bytes.first() == Some(&(*c as u8)) {
+                            matched = true;
+                            break;
+                        }
+                    }
+
+                    if matched {
+                        input_bytes = &input_bytes[1..];
+                    } else {
+                        return false;
+                    }
+                }
+                RegexPattern::NegativeCharSet(_char_set) => {
+                    // Negative character groups match any character that is not present within a pair of square brackets
+                    // Example: [^abc] matches any character that is not a, b, or c
+
+                    // let mut matched = false;
+                    // for c in char_set {
+                    //     if input_bytes.first() == Some(&(*c as u8)) {
+                    //         matched = true;
+                    //         break;
+                    //     }
+                    // }
+                    //
+                    // if matched {
+                    //     return false;
+                    // } else {
+                    //     input_bytes = &input_bytes[1..];
+                    // }
                 }
             }
         }
