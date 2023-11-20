@@ -137,7 +137,7 @@ pub mod matcher {
 
     fn match_with_pattern(input_line: &str, pattern: &[RegexPattern]) -> bool {
         let mut input_bytes = input_line.as_bytes();
-        let mut pattern_iter = pattern.iter();
+        let mut pattern_iter = pattern.iter().peekable();
 
         while let Some(pat) = pattern_iter.next() {
             match pat {
@@ -145,7 +145,12 @@ pub mod matcher {
                     if input_bytes.first() == Some(&(*c as u8)) {
                         input_bytes = &input_bytes[1..];
                     } else {
-                        return false;
+                        if let Some(&RegexPattern::ZeroOrOne(_)) = pattern_iter.peek() {
+                            input_bytes = &input_bytes[2..];
+                            pattern_iter.next(); // Skip the ZeroOrOne pattern
+                        } else {
+                            return false;
+                        }
                     }
                 }
                 RegexPattern::Digit => {
