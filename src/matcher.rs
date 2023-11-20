@@ -3,16 +3,16 @@ use std::rc::Rc;
 #[derive(Debug, Clone, PartialEq)]
 pub enum RegexPattern {
     Char(char),
-    Digit,                                                     // \d
-    Word,                                                      // \w
-    PositiveCharSet(Vec<char>),                                // [abc]
-    NegativeCharSet(Vec<char>),                                // [^abc]
-    Start,                                                     // ^
-    End,                                                       // $
-    Plus(char),                                                // +
-    ZeroOrOne(char),                                           // ?
-    Dot,                                                       // .
-    Alternative(Rc<Box<RegexPattern>>, Rc<Box<RegexPattern>>), // (a|b)
+    Digit,                                                               // \d
+    Word,                                                                // \w
+    PositiveCharSet(Vec<char>),                                          // [abc]
+    NegativeCharSet(Vec<char>),                                          // [^abc]
+    Start,                                                               // ^
+    End,                                                                 // $
+    Plus(char),                                                          // +
+    ZeroOrOne(char),                                                     // ?
+    Dot,                                                                 // .
+    Alternative(Rc<Box<Vec<RegexPattern>>>, Rc<Box<Vec<RegexPattern>>>), // (a|b)
 }
 
 pub mod matcher {
@@ -163,12 +163,8 @@ pub mod matcher {
                     // let pattern_b = parse_pattern(&pattern_b);
 
                     tokens.push(RegexPattern::Alternative(
-                        Rc::new(Box::new(
-                            parse_pattern(&pattern_a).into_iter().next().unwrap(),
-                        )),
-                        Rc::new(Box::new(
-                            parse_pattern(&pattern_b).into_iter().next().unwrap(),
-                        )),
+                        Rc::new(Box::new(parse_pattern(&pattern_a))),
+                        Rc::new(Box::new(parse_pattern(&pattern_b))),
                     ));
                 }
                 Some(c) => {
@@ -296,17 +292,17 @@ pub mod matcher {
                     let input_bytes_1 = input_bytes;
                     let input_bytes_2 = input_bytes;
 
-                    let pattern_1: RegexPattern = pattern_1.as_ref().as_ref().clone();
-                    let pattern_2: RegexPattern = pattern_2.as_ref().as_ref().clone();
+                    let pattern_1: Vec<RegexPattern> = pattern_1.as_ref().as_ref().clone();
+                    let pattern_2: Vec<RegexPattern> = pattern_2.as_ref().as_ref().clone();
 
                     if let true = match_with_pattern(
                         std::str::from_utf8(input_bytes_1).unwrap(),
-                        &[pattern_1],
+                        &pattern_1
                     ) {
                         input_bytes = input_bytes_1;
                     } else if let true = match_with_pattern(
                         std::str::from_utf8(input_bytes_2).unwrap(),
-                        &[pattern_2],
+                        &pattern_2,
                     ) {
                         input_bytes = input_bytes_2;
                     } else {
