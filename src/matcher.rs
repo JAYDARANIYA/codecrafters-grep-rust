@@ -1,18 +1,23 @@
-#[derive(Debug)]
+use std::rc::Rc;
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum RegexPattern {
     Char(char),
-    Digit,                      // \d
-    Word,                       // \w
-    PositiveCharSet(Vec<char>), // [abc]
-    NegativeCharSet(Vec<char>), // [^abc]
-    Start,                      // ^
-    End,                        // $
-    Plus(char),                 // +
-    ZeroOrOne(char),            // ?
-    Dot,                        // .
+    Digit,                                                     // \d
+    Word,                                                      // \w
+    PositiveCharSet(Vec<char>),                                // [abc]
+    NegativeCharSet(Vec<char>),                                // [^abc]
+    Start,                                                     // ^
+    End,                                                       // $
+    Plus(char),                                                // +
+    ZeroOrOne(char),                                           // ?
+    Dot,                                                       // .
+    Alternative(Rc<Box<RegexPattern>>, Rc<Box<RegexPattern>>), // (a|b)
 }
 
 pub mod matcher {
+
+    use std::rc::Rc;
 
     use super::RegexPattern;
 
@@ -128,6 +133,43 @@ pub mod matcher {
                     }
 
                     continue;
+                }
+                Some('(') => {
+                    // Example: (pattern_a|pattern_b)
+                    let mut pattern_a = String::new();
+                    let mut pattern_b = String::new();
+
+                    let mut is_pattern_a = true;
+
+                    loop {
+                        match pattern_chars.next() {
+                            Some('|') => {
+                                is_pattern_a = false;
+                                continue;
+                            }
+                            Some(')') => break,
+                            Some(c) => {
+                                if is_pattern_a {
+                                    pattern_a.push(c);
+                                } else {
+                                    pattern_b.push(c);
+                                }
+                            }
+                            None => panic!("Unterminated group: {:?}", pattern),
+                        }
+                    }
+
+                    // let pattern_a = parse_pattern(&pattern_a);
+                    // let pattern_b = parse_pattern(&pattern_b);
+
+                    tokens.push(RegexPattern::Alternative(
+                        Rc::new(Box::new(
+                            parse_pattern(&pattern_a).into_iter().next().unwrap(),
+                        )),
+                        Rc::new(Box::new(
+                            parse_pattern(&pattern_b).into_iter().next().unwrap(),
+                        )),
+                    ));
                 }
                 Some(c) => {
                     tokens.push(RegexPattern::Char(c));
@@ -248,6 +290,42 @@ pub mod matcher {
                     } else {
                         return false;
                     }
+                }
+
+                RegexPattern::Alternative(pattern_1, pattern_2) => {
+                    let input_bytes_1 = input_bytes;
+                    let input_bytes_2 = input_bytes;
+
+                    let pattern_1: RegexPattern = pattern_1.as_ref().as_ref().clone();
+                    let pattern_2: RegexPattern = pattern_2.as_ref().as_ref().clone();
+
+                    if let true = match_with_pattern(
+                        std::str::from_utf8(input_bytes_1).unwrap(),
+                        &[pattern_1],
+                    ) {
+                        input_bytes = input_bytes_1;
+                    } else if let true = match_with_pattern(
+                        std::str::from_utf8(input_bytes_2).unwrap(),
+                        &[pattern_2],
+                    ) {
+                        input_bytes = input_bytes_2;
+                    } else {
+                        return false;
+                    }
+
+                    // if let true = match_with_pattern(
+                    //     std::str::from_utf8(input_bytes_1).unwrap(),
+                    //     &[*pattern_1.as_ref().as_ref()],
+                    // ) {
+                    //     input_bytes = input_bytes_1;
+                    // } else if let true = match_with_pattern(
+                    //     std::str::from_utf8(input_bytes_2).unwrap(),
+                    //     &[*pattern_2.as_ref().as_ref()],
+                    // ) {
+                    //     input_bytes = input_bytes_2;
+                    // } else {
+                    //     return false;
+                    //                   }
                 }
             }
         }
