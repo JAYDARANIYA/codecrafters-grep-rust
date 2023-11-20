@@ -8,6 +8,7 @@ pub enum RegexPattern {
     Start,                      // ^
     End,                        // $
     Plus(char),                 // +
+    ZeroOrOne(char),            // ?
 }
 
 pub mod matcher {
@@ -58,6 +59,21 @@ pub mod matcher {
                                 tokens.push(RegexPattern::Plus(c));
                             }
                             _ => panic!("Unhandled + operator: {:?}", pattern),
+                        }
+                    }
+                }
+                Some('?') => {
+                    if tokens.len() == 0 {
+                        // normal character
+                        tokens.push(RegexPattern::Char('?'));
+                    } else {
+                        // get the last token
+                        let last_token = tokens.pop().expect("No token to apply ? operator to");
+                        match last_token {
+                            RegexPattern::Char(c) => {
+                                tokens.push(RegexPattern::ZeroOrOne(c));
+                            }
+                            _ => panic!("Unhandled ? operator: {:?}", pattern),
                         }
                     }
                 }
@@ -208,6 +224,13 @@ pub mod matcher {
                         }
                     } else {
                         return false;
+                    }
+                }
+                RegexPattern::ZeroOrOne(c) => {
+                    // check input line for the character c
+                    if input_bytes.first() == Some(&(*c as u8)) {
+                        // if it is present, keep consuming the character
+                        input_bytes = &input_bytes[1..];
                     }
                 }
             }
