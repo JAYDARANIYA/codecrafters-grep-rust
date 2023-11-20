@@ -9,6 +9,7 @@ pub enum RegexPattern {
     End,                        // $
     Plus(char),                 // +
     ZeroOrOne(char),            // ?
+    Dot,                        // .
 }
 
 pub mod matcher {
@@ -76,6 +77,9 @@ pub mod matcher {
                             _ => panic!("Unhandled ? operator: {:?}", pattern),
                         }
                     }
+                }
+                Some('.') => {
+                    tokens.push(RegexPattern::Dot);
                 }
                 Some('^') => {
                     // line anchor should only be at the start of the pattern or it's considered a normal character
@@ -236,6 +240,13 @@ pub mod matcher {
                     if input_bytes.first() == Some(&(*c as u8)) {
                         // if it is present, keep consuming the character
                         input_bytes = &input_bytes[1..];
+                    }
+                }
+                RegexPattern::Dot => {
+                    if input_bytes.first().is_some() {
+                        input_bytes = &input_bytes[1..];
+                    } else {
+                        return false;
                     }
                 }
             }
