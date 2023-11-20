@@ -308,20 +308,6 @@ pub mod matcher {
                     } else {
                         return false;
                     }
-
-                    // if let true = match_with_pattern(
-                    //     std::str::from_utf8(input_bytes_1).unwrap(),
-                    //     &[*pattern_1.as_ref().as_ref()],
-                    // ) {
-                    //     input_bytes = input_bytes_1;
-                    // } else if let true = match_with_pattern(
-                    //     std::str::from_utf8(input_bytes_2).unwrap(),
-                    //     &[*pattern_2.as_ref().as_ref()],
-                    // ) {
-                    //     input_bytes = input_bytes_2;
-                    // } else {
-                    //     return false;
-                    //                   }
                 }
             }
         }
