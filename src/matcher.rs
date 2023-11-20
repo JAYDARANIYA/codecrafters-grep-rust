@@ -5,7 +5,8 @@ pub enum RegexPattern {
     Word,                       // \w
     PositiveCharSet(Vec<char>), // [abc]
     NegativeCharSet(Vec<char>), // [^abc]
-    LineStart,                  // ^
+    Start,                      // ^
+    End,                        // $
 }
 
 pub mod matcher {
@@ -13,15 +14,15 @@ pub mod matcher {
     use super::RegexPattern;
 
     pub fn match_pattern(input_line: &str, pattern: &str) -> bool {
-        let regex_pattern = parse_pattern(pattern.chars(), Vec::new());
-
-        if let Some(RegexPattern::LineStart) = regex_pattern.first() {
-            if input_line.starts_with(&pattern[1..]) {
-                return true;
-            } else {
-                return false;
-            }
+        if pattern.starts_with('^') && input_line.starts_with(&pattern[1..]) {
+            return true;
         }
+
+        if pattern.ends_with('$') && input_line.ends_with(&pattern[..pattern.len() - 1]) {
+            return true;
+        }
+
+        let regex_pattern = parse_pattern(pattern.chars(), Vec::new());
 
         match_with_pattern(input_line, &regex_pattern)
     }
@@ -53,10 +54,14 @@ pub mod matcher {
                     tokens.push(RegexPattern::Char('^'));
                     parse_pattern(pattern, tokens)
                 } else {
-                    tokens.push(RegexPattern::LineStart);
+                    tokens.push(RegexPattern::Start);
                     // if it is line anchor, we don't need to parse the rest of the pattern
                     tokens
                 }
+            }
+            Some('$') => {
+                tokens.push(RegexPattern::End);
+                tokens
             }
             Some('[') => {
                 let mut char_set = Vec::new();
@@ -171,7 +176,10 @@ pub mod matcher {
                         input_bytes = &input_bytes[1..];
                     }
                 }
-                RegexPattern::LineStart => {
+                RegexPattern::Start => {
+                    return false;
+                }
+                RegexPattern::End => {
                     return false;
                 }
             }
