@@ -132,23 +132,23 @@ pub mod matcher {
                         return false;
                     }
                 }
-                RegexPattern::NegativeCharSet(_char_set) => {
+                RegexPattern::NegativeCharSet(char_set) => {
                     // Negative character groups match any character that is not present within a pair of square brackets
                     // Example: [^abc] matches any character that is not a, b, or c
 
-                    // let mut matched = false;
-                    // for c in char_set {
-                    //     if input_bytes.first() == Some(&(*c as u8)) {
-                    //         matched = true;
-                    //         break;
-                    //     }
-                    // }
-                    //
-                    // if matched {
-                    //     return false;
-                    // } else {
-                    //     input_bytes = &input_bytes[1..];
-                    // }
+                    let mut matched = false;
+                    for c in char_set {
+                        if input_bytes.first() == Some(&(*c as u8)) {
+                            matched = true;
+                            break;
+                        }
+                    }
+
+                    if matched {
+                        return false;
+                    } else {
+                        input_bytes = &input_bytes[1..];
+                    }
                 }
             }
         }
