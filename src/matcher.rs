@@ -1,10 +1,11 @@
 #[derive(Debug)]
 pub enum RegexPattern {
     Char(char),
-    Digit, // \d
-    Word,  // \w
-    PositiveCharSet(Vec<char>),
-    NegativeCharSet(Vec<char>),
+    Digit,                      // \d
+    Word,                       // \w
+    PositiveCharSet(Vec<char>), // [abc]
+    NegativeCharSet(Vec<char>), // [^abc]
+    LineStart,                  // ^
 }
 
 pub mod matcher {
@@ -13,6 +14,14 @@ pub mod matcher {
 
     pub fn match_pattern(input_line: &str, pattern: &str) -> bool {
         let regex_pattern = parse_pattern(pattern.chars(), Vec::new());
+
+        if let Some(RegexPattern::LineStart) = regex_pattern.first() {
+            if input_line.starts_with(&pattern[1..]) {
+                return true;
+            } else {
+                return false;
+            }
+        }
 
         match_with_pattern(input_line, &regex_pattern)
     }
@@ -37,6 +46,18 @@ pub mod matcher {
                 }
                 _ => panic!("Unhandled escape sequence: \\{:?}", pattern),
             },
+            // line anchor
+            Some('^') => {
+                // line anchor should only be at the start of the pattern or it's considered a normal character
+                if tokens.len() > 0 {
+                    tokens.push(RegexPattern::Char('^'));
+                    parse_pattern(pattern, tokens)
+                } else {
+                    tokens.push(RegexPattern::LineStart);
+                    // if it is line anchor, we don't need to parse the rest of the pattern
+                    tokens
+                }
+            }
             Some('[') => {
                 let mut char_set = Vec::new();
                 let mut is_negative = false;
@@ -149,6 +170,9 @@ pub mod matcher {
                     } else {
                         input_bytes = &input_bytes[1..];
                     }
+                }
+                RegexPattern::LineStart => {
+                    return false;
                 }
             }
         }
