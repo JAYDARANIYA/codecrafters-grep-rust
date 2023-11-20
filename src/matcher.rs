@@ -7,6 +7,7 @@ pub enum RegexPattern {
     NegativeCharSet(Vec<char>), // [^abc]
     Start,                      // ^
     End,                        // $
+    Plus(char),                 // +
 }
 
 pub mod matcher {
@@ -22,86 +23,99 @@ pub mod matcher {
             return true;
         }
 
-        let regex_pattern = parse_pattern(pattern.chars(), Vec::new());
+        let regex_pattern = parse_pattern(pattern);
 
         match_with_pattern(input_line, &regex_pattern)
     }
 
-    fn parse_pattern(
-        mut pattern: std::str::Chars,
-        mut tokens: Vec<RegexPattern>,
-    ) -> Vec<RegexPattern> {
-        match pattern.next() {
-            Some('\\') => match pattern.next() {
-                Some('\\') => {
-                    tokens.push(RegexPattern::Char('\\'));
-                    parse_pattern(pattern, tokens)
-                }
-                Some('d') => {
-                    tokens.push(RegexPattern::Digit);
-                    parse_pattern(pattern, tokens)
-                }
-                Some('w') => {
-                    tokens.push(RegexPattern::Word);
-                    parse_pattern(pattern, tokens)
-                }
-                _ => panic!("Unhandled escape sequence: \\{:?}", pattern),
-            },
-            // line anchor
-            Some('^') => {
-                // line anchor should only be at the start of the pattern or it's considered a normal character
-                if tokens.len() > 0 {
-                    tokens.push(RegexPattern::Char('^'));
-                    parse_pattern(pattern, tokens)
-                } else {
-                    tokens.push(RegexPattern::Start);
-                    // if it is line anchor, we don't need to parse the rest of the pattern
-                    tokens
-                }
-            }
-            Some('$') => {
-                tokens.push(RegexPattern::End);
-                tokens
-            }
-            Some('[') => {
-                let mut char_set = Vec::new();
-                let mut is_negative = false;
+    fn parse_pattern(pattern: &str) -> Vec<RegexPattern> {
+        let mut pattern_chars = pattern.chars();
+        let mut tokens: Vec<RegexPattern> = Vec::new();
 
-                match pattern.next() {
-                    Some('^') => {
-                        is_negative = true;
-                        match pattern.next() {
-                            Some(']') => {}
+        loop {
+            match pattern_chars.next() {
+                Some('\\') => match pattern_chars.next() {
+                    Some('\\') => {
+                        tokens.push(RegexPattern::Char('\\'));
+                    }
+                    Some('d') => {
+                        tokens.push(RegexPattern::Digit);
+                    }
+                    Some('w') => {
+                        tokens.push(RegexPattern::Word);
+                    }
+                    _ => panic!("Unhandled escape sequence: \\{:?}", pattern),
+                },
+                Some('+') => {
+                    if tokens.len() == 0 {
+                        // normal character
+                        tokens.push(RegexPattern::Char('+'));
+                    } else {
+                        // get the last token
+                        let last_token = tokens.pop().expect("No token to apply + operator to");
+                        match last_token {
+                            RegexPattern::Char(c) => {
+                                tokens.push(RegexPattern::Plus(c));
+                            }
+                            _ => panic!("Unhandled + operator: {:?}", pattern),
+                        }
+                    }
+                }
+                Some('^') => {
+                    // line anchor should only be at the start of the pattern or it's considered a normal character
+                    if tokens.len() > 0 {
+                        tokens.push(RegexPattern::Char('^'));
+                    } else {
+                        tokens.push(RegexPattern::Start);
+                        // if it is line anchor, we don't need to parse the rest of the pattern
+                        return tokens;
+                    }
+                }
+                Some('$') => {
+                    tokens.push(RegexPattern::End);
+                    return tokens;
+                }
+                Some('[') => {
+                    let mut char_set = Vec::new();
+                    let mut is_negative = false;
+
+                    match pattern_chars.next() {
+                        Some('^') => {
+                            is_negative = true;
+                            match pattern_chars.next() {
+                                Some(']') => {}
+                                Some(c) => char_set.push(c),
+                                None => panic!("Unterminated character set: {:?}", pattern),
+                            }
+                        }
+                        Some(']') => {}
+                        Some(c) => char_set.push(c),
+                        None => panic!("Unterminated character set: {:?}", pattern),
+                    }
+
+                    loop {
+                        match pattern_chars.next() {
+                            Some(']') => break,
                             Some(c) => char_set.push(c),
                             None => panic!("Unterminated character set: {:?}", pattern),
                         }
                     }
-                    Some(']') => {}
-                    Some(c) => char_set.push(c),
-                    None => panic!("Unterminated character set: {:?}", pattern),
-                }
 
-                loop {
-                    match pattern.next() {
-                        Some(']') => break,
-                        Some(c) => char_set.push(c),
-                        None => panic!("Unterminated character set: {:?}", pattern),
+                    if is_negative {
+                        tokens.push(RegexPattern::NegativeCharSet(char_set));
+                    } else {
+                        tokens.push(RegexPattern::PositiveCharSet(char_set));
                     }
-                }
 
-                if is_negative {
-                    tokens.push(RegexPattern::NegativeCharSet(char_set));
-                } else {
-                    tokens.push(RegexPattern::PositiveCharSet(char_set));
+                    continue;
                 }
-
-                parse_pattern(pattern, tokens)
+                Some(c) => {
+                    tokens.push(RegexPattern::Char(c));
+                }
+                None => {
+                    return tokens;
+                }
             }
-            Some(c) => {
-                tokens.push(RegexPattern::Char(c));
-                parse_pattern(pattern, tokens)
-            }
-            None => tokens,
         }
     }
 
@@ -181,6 +195,20 @@ pub mod matcher {
                 }
                 RegexPattern::End => {
                     return false;
+                }
+                RegexPattern::Plus(c) => {
+                    // check input line for the character c
+                    if input_bytes.first() == Some(&(*c as u8)) {
+                        // if it is present, keep consuming the character
+                        input_bytes = &input_bytes[1..];
+
+                        // check if the next character is also the same
+                        while input_bytes.first() == Some(&(*c as u8)) {
+                            input_bytes = &input_bytes[1..];
+                        }
+                    } else {
+                        return false;
+                    }
                 }
             }
         }
